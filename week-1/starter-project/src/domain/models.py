@@ -30,6 +30,8 @@ class Incident:
     status: IncidentStatus
     created_at: datetime
     resolved_at: Optional[datetime] = None
+    recommended_team: Optional[TeamName] = None
+    duplicate_group_key: Optional[str] = None
 
 
 @dataclass(frozen=True)

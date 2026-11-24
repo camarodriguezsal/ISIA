@@ -1,6 +1,6 @@
 """Módulo determinista para el cálculo y evaluación de acuerdos de nivel de servicio (SLA)."""
 
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from typing import Dict
 
 from src.domain.models import Incident, SLAEvaluation, SLARule, SeverityLevel
@@ -45,6 +45,13 @@ def _calculate_business_minutes(start_dt: datetime, end_dt: datetime) -> int:
     return int(total_seconds // 60)
 
 
+def _normalize_timestamp(dt: datetime) -> datetime:
+    """Normaliza marcas temporales aware a UTC naive; mantiene las naive intactas."""
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
 def evaluate_sla_status(incident: Incident, reference_time: datetime) -> SLAEvaluation:
     """Evalúa si un incidente ha incumplido su SLA o requiere escalamiento preventivo.
 
@@ -56,16 +63,17 @@ def evaluate_sla_status(incident: Incident, reference_time: datetime) -> SLAEval
         SLAEvaluation con los minutos transcurridos, restantes y banderas de estado.
     """
     rule = get_sla_rule_for_severity(incident.severity)
-    end_time = incident.resolved_at or reference_time
+    created_at = _normalize_timestamp(incident.created_at)
+    end_time = _normalize_timestamp(incident.resolved_at or reference_time)
 
-    if end_time < incident.created_at:
+    if end_time < created_at:
         raise ValueError("El tiempo de referencia no puede ser anterior a la creación.")
 
     if rule.operates_24x7:
-        delta_seconds = (end_time - incident.created_at).total_seconds()
+        delta_seconds = (end_time - created_at).total_seconds()
         elapsed_minutes = int(delta_seconds // 60)
     else:
-        elapsed_minutes = _calculate_business_minutes(incident.created_at, end_time)
+        elapsed_minutes = _calculate_business_minutes(created_at, end_time)
 
     remaining_minutes = rule.max_resolution_minutes - elapsed_minutes
     is_breached = elapsed_minutes > rule.max_resolution_minutes

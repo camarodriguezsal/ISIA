@@ -17,8 +17,12 @@ class IncidentRepositoryPort(Protocol):
         """Recupera un incidente por su identificador o None si no existe."""
         ...
 
-    def find_open_duplicates(self, component: str, title: str) -> list[Incident]:
-        """Busca incidentes activos potencialmente duplicados para un componente y título."""
+    def find_open_duplicates(
+        self,
+        duplicate_group_key: str,
+        exclude_incident_id: Optional[str] = None,
+    ) -> list[Incident]:
+        """Busca incidentes abiertos con la misma clave de duplicado, excluyendo opcionalmente un ID."""
         ...
 
     def list_active_incidents(

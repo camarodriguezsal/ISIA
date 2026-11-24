@@ -74,6 +74,7 @@ def test_sqlite_repository_fulfills_incident_repository_port() -> None:
         severity="P1",
         status="OPEN",
         created_at=datetime(2026, 11, 20, 10, 0, 0),
+        duplicate_group_key="database-cluster:pool-exhaustion",
     )
     repo.save_incident(incident)
 
@@ -81,7 +82,7 @@ def test_sqlite_repository_fulfills_incident_repository_port() -> None:
     assert fetched is not None
     assert fetched.incident_id == "INC-PORT-1"
 
-    duplicates = repo.find_open_duplicates("database-cluster", "Timeout en base de datos")
+    duplicates = repo.find_open_duplicates("database-cluster:pool-exhaustion")
     assert len(duplicates) == 1
     assert duplicates[0].incident_id == "INC-PORT-1"
 

@@ -37,14 +37,30 @@ class SQLiteIncidentRepository:
                 severity TEXT NOT NULL,
                 status TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                resolved_at TEXT
+                resolved_at TEXT,
+                recommended_team TEXT,
+                duplicate_group_key TEXT
             )
             """
         )
+        existing_columns = {
+            row["name"]
+            for row in cursor.execute("PRAGMA table_info(incidents)").fetchall()
+        }
+        if "recommended_team" not in existing_columns:
+            cursor.execute("ALTER TABLE incidents ADD COLUMN recommended_team TEXT")
+        if "duplicate_group_key" not in existing_columns:
+            cursor.execute("ALTER TABLE incidents ADD COLUMN duplicate_group_key TEXT")
         cursor.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_incidents_component_status
             ON incidents (component, status)
+            """
+        )
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_incidents_dup_key
+            ON incidents (duplicate_group_key, status)
             """
         )
         for rule in SLA_POLICY_TABLE.values():
@@ -69,6 +85,8 @@ class SQLiteIncidentRepository:
             resolved_at=(
                 datetime.fromisoformat(row["resolved_at"]) if row["resolved_at"] else None
             ),
+            recommended_team=row["recommended_team"],
+            duplicate_group_key=row["duplicate_group_key"],
         )
 
     def save_incident(self, incident: Incident) -> None:
@@ -77,9 +95,10 @@ class SQLiteIncidentRepository:
         cursor.execute(
             """
             INSERT OR REPLACE INTO incidents (
-                incident_id, title, component, severity, status, created_at, resolved_at
+                incident_id, title, component, severity, status,
+                created_at, resolved_at, recommended_team, duplicate_group_key
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 incident.incident_id,
@@ -89,6 +108,8 @@ class SQLiteIncidentRepository:
                 incident.status,
                 incident.created_at.isoformat(),
                 incident.resolved_at.isoformat() if incident.resolved_at else None,
+                incident.recommended_team,
+                incident.duplicate_group_key,
             ),
         )
         self.conn.commit()
@@ -98,7 +119,8 @@ class SQLiteIncidentRepository:
         cursor = self.conn.cursor()
         cursor.execute(
             """
-            SELECT incident_id, title, component, severity, status, created_at, resolved_at
+            SELECT incident_id, title, component, severity, status,
+                   created_at, resolved_at, recommended_team, duplicate_group_key
             FROM incidents
             WHERE incident_id = ?
             """,
@@ -107,20 +129,38 @@ class SQLiteIncidentRepository:
         row = cursor.fetchone()
         return self._row_to_incident(row) if row is not None else None
 
-    def find_open_duplicates(self, component: str, title: str) -> list[Incident]:
-        """Busca incidentes activos (OPEN/IN_PROGRESS) con el mismo componente y título."""
+    def find_open_duplicates(
+        self,
+        duplicate_group_key: str,
+        exclude_incident_id: Optional[str] = None,
+    ) -> list[Incident]:
+        """Busca incidentes abiertos con la misma duplicate_group_key."""
         cursor = self.conn.cursor()
-        cursor.execute(
-            """
-            SELECT incident_id, title, component, severity, status, created_at, resolved_at
-            FROM incidents
-            WHERE component = ?
-              AND status IN ('OPEN', 'IN_PROGRESS')
-              AND LOWER(title) = LOWER(?)
-            ORDER BY created_at ASC, incident_id ASC
-            """,
-            (component, title),
-        )
+        if exclude_incident_id is not None:
+            cursor.execute(
+                """
+                SELECT incident_id, title, component, severity, status,
+                       created_at, resolved_at, recommended_team, duplicate_group_key
+                FROM incidents
+                WHERE duplicate_group_key = ?
+                  AND status IN ('OPEN', 'IN_PROGRESS', 'ESCALATION_REQUIRED')
+                  AND incident_id != ?
+                ORDER BY created_at ASC, incident_id ASC
+                """,
+                (duplicate_group_key, exclude_incident_id),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT incident_id, title, component, severity, status,
+                       created_at, resolved_at, recommended_team, duplicate_group_key
+                FROM incidents
+                WHERE duplicate_group_key = ?
+                  AND status IN ('OPEN', 'IN_PROGRESS', 'ESCALATION_REQUIRED')
+                ORDER BY created_at ASC, incident_id ASC
+                """,
+                (duplicate_group_key,),
+            )
         return [self._row_to_incident(row) for row in cursor.fetchall()]
 
     def list_active_incidents(
@@ -132,7 +172,7 @@ class SQLiteIncidentRepository:
             cursor.execute(
                 """
                 SELECT i.incident_id, i.title, i.component, i.severity, i.status,
-                       i.created_at, i.resolved_at
+                       i.created_at, i.resolved_at, i.recommended_team, i.duplicate_group_key
                 FROM incidents i
                 INNER JOIN sla_policies p ON i.severity = p.severity
                 WHERE i.component = ?
@@ -145,7 +185,7 @@ class SQLiteIncidentRepository:
             cursor.execute(
                 """
                 SELECT i.incident_id, i.title, i.component, i.severity, i.status,
-                       i.created_at, i.resolved_at
+                       i.created_at, i.resolved_at, i.recommended_team, i.duplicate_group_key
                 FROM incidents i
                 INNER JOIN sla_policies p ON i.severity = p.severity
                 WHERE i.status IN ('OPEN', 'IN_PROGRESS')

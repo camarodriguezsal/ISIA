@@ -39,14 +39,18 @@ En cumplimiento de `docs/adr/003-arquitectura-hexagonal.md`, la estructura de `s
 - **Stack tecnológico aprobado**:
   - **API REST (`inbound`)**: **FastAPI** + **Pydantic v2** para contratos y validación en frontera HTTP.
   - **CLI (`inbound`)**: **Typer**.
-  - **Persistencia (`outbound`)**: **`sqlite3` de la librería estándar** con SQL explícito y parametrizado, **sin ORMs pesados** según **`ADR-001`**, evitando anti-patrones de escaneo completo en memoria o consultas N+1.
-- **Gobernanza de base de datos y decisiones**: Cualquier cambio de motor de base de datos (p. ej., adopción de un motor relacional dedicado en H004) o decisión estructural irreversible requiere **aprobar previamente su propio ADR** en `docs/adr/` siguiendo la plantilla MADR de `docs/adr/000-template.md`.
+  - **Persistencia (`outbound`)**: Persistencia dual intercambiable vía **`DATABASE_URL`** en el *composition root* según **`ADR-004`** (reemplazando parcialmente `ADR-001`):
+    - **SQLite (`sqlite3` de la librería estándar)** como motor por defecto para ejecución local y pruebas rápidas (`sqlite:///:memory:` o `sqlite:///...`).
+    - **PostgreSQL (`psycopg[binary]`)** como motor relacional dedicado (`postgresql://...` o `postgres://...`).
+    - En ambos adaptadores se mantiene **SQL explícito y parametrizado, sin ORMs pesados**, índices equivalentes para evitar escaneos completos en memoria o consultas N+1, y **timestamps ISO-8601 en columnas `TEXT`** para preservar el determinismo de SLA (`ADR-002`).
+  - **Runtime en contenedores (`ADR-004`)**: Topología reproducible de 2 servicios en **Docker Compose** (`api` basado en `python:3.12-slim` + `uv` y `db` basado en `postgres:16-alpine` con volumen persistente), `.dockerignore` limpio y verificaciones reales de salud (`pg_isready` y `GET /health` con `SELECT 1`).
+- **Gobernanza de base de datos y decisiones**: Cualquier nuevo cambio de motor de base de datos o decisión estructural irreversible requiere **aprobar previamente su propio ADR** en `docs/adr/` siguiendo la plantilla MADR de `docs/adr/000-template.md`.
 - **Verificación estática de fronteras hexagonales**: Validación obligatoria con **Ruff** mediante `uv run ruff check src/`.
 - **Especificación y pruebas BDD obligatorias**:
   - Todo comportamiento nuevo o modificado debe especificarse con escenarios **BDD (`Given / When / Then`)**.
-  - La verificación automatizada es obligatoria mediante `uv run pytest -v`, cubriendo el determinismo del dominio, los casos de uso mediante puertos en memoria y los adaptadores REST/CLI/SQLite.
+  - La verificación automatizada es obligatoria mediante `uv run pytest -v`, cubriendo el determinismo del dominio, los casos de uso mediante puertos en memoria y los adaptadores REST/CLI/SQLite/PostgreSQL.
 - **Flujo operativo**: Todo trabajo sigue el ciclo **Plan → Build**; no se introduce código ni dependencias sin aprobación previa y verificación automatizada tras los cambios.
 
 ---
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-23 | **Last Amended**: 2026-11-23
+**Version**: 1.1.0 | **Ratified**: 2026-11-23 | **Last Amended**: 2026-11-24
