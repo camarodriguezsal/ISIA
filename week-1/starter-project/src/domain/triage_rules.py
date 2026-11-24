@@ -1,28 +1,14 @@
-"""Motor determinista de clasificación y enrutamiento de incidentes (IncidentOps).
-
-NOTA PEDAGÓGICA (Semana 1 — Enfoque 100% AI for Software Engineering):
-Este módulo implementa las reglas de negocio para clasificar reportes entrantes y
-asignarlos a un equipo de ingeniería (`Backend-Core`, `Platform-SRE`, `Data-DBA`,
-`Security-IAM`).
-
-Actualmente presenta deuda técnica que los estudiantes diagnosticarán y refactorizarán
-asistidos por IA (usando Context Engineering, Few-Shot, Chain-of-Thought y Self-Consistency):
-1. Clasificación frágil con cadenas `if/elif` acopladas y sensibles a palabras aisladas
-   (p. ej., cualquier mensaje con la palabra "hoy" se clasifica erróneamente como `P0`).
-2. No asigna el equipo responsable (`recommended_team`) ni genera una clave de
-   correlación (`duplicate_group_key`) para detectar incidentes repetidos del mismo
-   componente.
-"""
+"""Motor determinista de clasificación y enrutamiento de incidentes (IncidentOps)."""
 
 import json
 from pathlib import Path
-from typing import Dict, List, Literal
+from typing import Dict, List
 
-from src.models import SeverityLevel, TriageResult
+from src.domain.models import SeverityLevel, TeamName, TriageResult
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 SAMPLE_DATA_PATH = PROJECT_ROOT / "data" / "sample_incidents.json"
-TeamName = Literal["Backend-Core", "Platform-SRE", "Data-DBA", "Security-IAM"]
+
 
 def classify_incident_report(incident_id: str, raw_text: str) -> TriageResult:
     """Clasifica un reporte de incidente evaluando impacto real, seguridad y radio de afectación."""
@@ -41,7 +27,7 @@ def classify_incident_report(incident_id: str, raw_text: str) -> TriageResult:
         severity = "P0"
         component = "payments-gateway"
         recommended_team = "Backend-Core"
-        symptom_category = "http-502"
+        symptom_category = "http-502-outage"
         rationale = "Indisponibilidad global de servicio crítico de pagos (HTTP 502)."
 
     # 3. Degradación severa de infraestructura compartida -> P1 / Data-DBA
@@ -102,28 +88,22 @@ def classify_incident_report(incident_id: str, raw_text: str) -> TriageResult:
     )
 
 
-
 def _run_triage_audit() -> None:
-    """Ejecuta el motor actual sobre los 10 incidentes de prueba para evidenciar fallos."""
+    """Ejecuta el motor determinista sobre los incidentes de ejemplo."""
     incidents: List[Dict[str, str]] = json.loads(SAMPLE_DATA_PATH.read_text(encoding="utf-8"))
 
-    print("=== Auditoría del Motor de Triaje Actual (`src/triage_rules.py`) ===")
-    print(f"{'ID':<10} | {'Sev.':<5} | {'Componente':<20} | {'Extracto del Reporte'}")
-    print("-" * 88)
+    print("=== Auditoría del Motor de Triaje (`src/domain/triage_rules.py`) ===")
+    print(f"{'ID':<10} | {'Sev.':<5} | {'Equipo':<14} | {'Componente':<20} | {'Extracto del Reporte'}")
+    print("-" * 105)
     for item in incidents:
         result = classify_incident_report(item["id"], item["raw_text"])
-        snippet = item["raw_text"][:45] + "..." if len(item["raw_text"]) > 45 else item["raw_text"]
-        print(f"{result.incident_id:<10} | {result.severity:<5} | {result.component:<20} | {snippet}")
-    print("-" * 88)
-    print(
-        "Observa los problemas en la salida actual:\n"
-        "  - INC-1002 (cuenta individual bloqueada) y INC-1009 (exportación Excel lenta)\n"
-        "    se clasifican como P0 solo porque el usuario escribió la palabra 'hoy'.\n"
-        "  - INC-1007 (fuga crítica de facturas entre empresas por company_id en URL)\n"
-        "    se clasifica como P3 porque no contiene las palabras 'urgente' ni '502'."
-    )
+        snippet = item["raw_text"][:40] + "..." if len(item["raw_text"]) > 40 else item["raw_text"]
+        print(
+            f"{result.incident_id:<10} | {result.severity:<5} | {result.recommended_team:<14} "
+            f"| {result.component:<20} | {snippet}"
+        )
+    print("-" * 105)
 
 
 if __name__ == "__main__":
     _run_triage_audit()
-

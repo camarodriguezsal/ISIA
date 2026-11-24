@@ -1,0 +1,10 @@
+extend = "../../pyproject.toml"
+
+[lint.flake8-tidy-imports.banned-api]
+"fastapi".msg = "src/application/ debe permanecer agnóstico a FastAPI (ADR-003)."
+"pydantic".msg = "src/application/ debe permanecer agnóstico a Pydantic (ADR-003)."
+"typer".msg = "src/application/ debe permanecer agnóstico a Typer (ADR-003)."
+"uvicorn".msg = "src/application/ debe permanecer agnóstico a Uvicorn (ADR-003)."
+"sqlite3".msg = "src/application/ no puede importar drivers de base de datos (ADR-003)."
+"sqlalchemy".msg = "src/application/ no puede importar ORMs ni drivers de BD (ADR-003)."
+"src.adapters".msg = "src/application/ no puede depender de adaptadores (ADR-003)."

@@ -3,7 +3,7 @@
 from datetime import datetime, time, timedelta
 from typing import Dict
 
-from src.models import Incident, SLAEvaluation, SLARule, SeverityLevel
+from src.domain.models import Incident, SLAEvaluation, SLARule, SeverityLevel
 
 BUSINESS_START = time(8, 0, 0)
 BUSINESS_END = time(18, 0, 0)

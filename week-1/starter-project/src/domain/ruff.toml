@@ -1,0 +1,11 @@
+extend = "../../pyproject.toml"
+
+[lint.flake8-tidy-imports.banned-api]
+"fastapi".msg = "src/domain/ debe permanecer libre de frameworks web (ADR-003)."
+"pydantic".msg = "src/domain/ debe permanecer libre de Pydantic (ADR-003)."
+"typer".msg = "src/domain/ debe permanecer libre de frameworks CLI (ADR-003)."
+"uvicorn".msg = "src/domain/ debe permanecer libre de servidores ASGI (ADR-003)."
+"sqlite3".msg = "src/domain/ no puede importar drivers de base de datos (ADR-003)."
+"sqlalchemy".msg = "src/domain/ no puede importar ORMs ni drivers de BD (ADR-003)."
+"src.application".msg = "src/domain/ no puede depender de la capa de aplicación (ADR-003)."
+"src.adapters".msg = "src/domain/ no puede depender de adaptadores (ADR-003)."

@@ -8,6 +8,7 @@ SeverityLevel = Literal["P0", "P1", "P2", "P3"]
 IncidentStatus = Literal["OPEN", "IN_PROGRESS", "ESCALATION_REQUIRED", "RESOLVED"]
 TeamName = Literal["Backend-Core", "Platform-SRE", "Data-DBA", "Security-IAM"]
 
+
 @dataclass(frozen=True)
 class SLARule:
     """Define el acuerdo de nivel de servicio (SLA) para un nivel de severidad."""
@@ -44,10 +45,9 @@ class SLAEvaluation:
     requires_escalation: bool
 
 
-
 @dataclass
 class TriageResult:
-    """Resultado estructurado producido por el clasificador de triaje con IA."""
+    """Resultado estructurado producido por el clasificador de triaje."""
 
     incident_id: str
     severity: SeverityLevel

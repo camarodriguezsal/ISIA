@@ -1,0 +1,6 @@
+extend = "../../../pyproject.toml"
+
+[lint.flake8-tidy-imports.banned-api]
+"sqlite3".msg = "src/adapters/inbound/ no puede importar sqlite3 directamente (ADR-003)."
+"sqlalchemy".msg = "src/adapters/inbound/ no puede importar SQLAlchemy directamente (ADR-003)."
+"src.adapters.outbound.sqlite_repository".msg = "src/adapters/inbound/ debe obtener repositorios únicamente vía src.adapters.outbound.factory (ADR-003)."
